@@ -36,7 +36,7 @@ WINDOW_WIDTH = PANEL_WIDTH * 3 + 30
 WINDOW_HEIGHT = PANEL_HEIGHT + 80
 
 # Device to run model inferences on
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 print("Using device", DEVICE)
 
 

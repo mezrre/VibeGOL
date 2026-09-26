@@ -42,7 +42,7 @@ from vibe_core import GoLReverseNet
 torch.manual_seed(67)
 np.random.seed(6767)
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" 
 
 # grid size for training
 # NOTE that this does not effect the grid size for inference, but
@@ -131,7 +131,7 @@ def make_batch_torch(batch_size, grid_size, device, mask_probability_range=(0.0,
 class StreamingGoLDataset(torch.utils.data.IterableDataset):
     """Generates fresh random (next, masked_prev, mask, prev) batches."""
 
-    def __init__(self, batch_size, batches_per_epoch, grid_size, seed=None, mask_probability_range=(0.1, 0.9)):
+    def __init__(self, batch_size, batches_per_epoch, grid_size, seed=None, mask_probability_range=(0, 1)):
         self.batch_size = batch_size
         self.batches_per_epoch = batches_per_epoch
         self.grid_size = grid_size
@@ -320,7 +320,7 @@ def train(
 
 
         for _ in range(batches_per_epoch):
-            x, y = make_batch_torch(batch_size, grid_size, DEVICE, mask_probability_range=(0, 0.5))
+            x, y = make_batch_torch(batch_size, grid_size, DEVICE, mask_probability_range=(0, 0.75))
 
             x = x.to(DEVICE, non_blocking=True)
             y = y.to(DEVICE, non_blocking=True)
