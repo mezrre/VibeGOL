@@ -256,12 +256,11 @@ def train(
     batch_size,
     batches_per_epoch,
     grid_size,
-    lr=1e-3,
+    lr=1e-2,
     channels=64,
     n_blocks=8,
     mask_probability_range=(0, 1),
-    save_path=None,
-    resume=False,
+    save_path=None
 ):
     if save_path is None:
         save_path = os.path.join(
@@ -446,7 +445,7 @@ if __name__ == "__main__":
     epochs = int(data["num_epochs"]) 
     batch_size = int(data["batch_size"]) 
     batches_per_epoch = int(data["batches_per_epoch"]) 
-
+    learning_rate = float(data["learning_rate"])
 
     # batch_size = 16
     # grid_size = 16
@@ -466,5 +465,6 @@ if __name__ == "__main__":
         n_blocks=n_blocks,
         grid_size=grid_size,
         mask_probability_range=(0, 1),
-        save_path=model_path
+        save_path=model_path,
+        lr=learning_rate
     )
