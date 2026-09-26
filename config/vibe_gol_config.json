@@ -1,0 +1,4 @@
+{
+    "grid_size": "24",
+    "model_path": "models/gol_reverse_model_new.pt"
+}

@@ -1,0 +1,9 @@
+{
+    "grid_size": "64",
+    "layer_count": "64",
+    "channel_count": "64",
+    "num_epochs": "100",
+    "batch_size": "16",
+    "batches_per_epoch": "32",
+    "model_path": "models/gol_reverse_model_new.pt"
+}
