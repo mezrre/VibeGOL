@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 import pygame
 
-from gol_ai import GoLReverseNet
+from vibe_core import GoLReverseNet
 
 
 with open("config/vibe_gol_config.json", 'rt') as f:

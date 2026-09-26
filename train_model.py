@@ -37,6 +37,8 @@ import os
 import random
 import matplotlib.pyplot as plt
 
+from vibe_core import GoLReverseNet
+
 torch.manual_seed(67)
 np.random.seed(6767)
 
@@ -161,45 +163,7 @@ class StreamingGoLDataset(torch.utils.data.IterableDataset):
             yield x, y, torch.from_numpy(mask).float().unsqueeze(1)
 
 
-# ---------------------------------------------------------------------------
-# Model
-# ---------------------------------------------------------------------------
 
-class ConvBlock(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-        self.conv1 = nn.Conv2d(channels, channels, 3, padding=0)
-        self.bn1 = nn.BatchNorm2d(channels)
-        self.conv2 = nn.Conv2d(channels, channels, 3, padding=0)
-        self.bn2 = nn.BatchNorm2d(channels)
-
-    def circ_pad(self, x):
-        return F.pad(x, (1, 1, 1, 1), mode="circular")
-
-    def forward(self, x):
-        residual = x
-        out = F.relu(self.bn1(self.conv1(self.circ_pad(x))))
-        out = self.bn2(self.conv2(self.circ_pad(out)))
-        return F.relu(out + residual)
-
-# Simple architecture: Spam Convulutional layers and relu
-# model not working? more layers. model guessing wrong? more layers. model not solving your life issues? more layers.
-class GoLReverseNet(nn.Module):
-    def __init__(self, channels=64, n_blocks=24):
-        super().__init__()
-
-        # Three input channels:
-        # next state, masked predecessor, predecessor mask.
-        self.stem = nn.Conv2d(3, channels, 3, padding=0)
-        self.stem_pad = lambda x: F.pad(x, (1, 1, 1, 1), mode="circular")
-        self.blocks = nn.ModuleList([ConvBlock(channels) for _ in range(n_blocks)])
-        self.head = nn.Conv2d(channels, 1, 1)
-
-    def forward(self, x):
-        x = F.relu(self.stem(self.stem_pad(x)))
-        for block in self.blocks:
-            x = block(x)
-        return self.head(x)
 
 
 # ---------------------------------------------------------------------------
@@ -404,8 +368,8 @@ def train(
             mask_probability_range=mask_probability_range,
         )
 
-        
-
+        # training size in bits
+        total_training_size = epochs*batch_size*batches_per_epoch*grid_size*grid_size
         print(
             f"epoch {epoch:3d}/{epochs}  loss={running_loss / n_batches:.4f}  "
             f"cellwise_acc={metrics['cellwise_acc']:.4f}  "
@@ -413,7 +377,7 @@ def train(
             f"roundtrip_cellwise={metrics['roundtrip_cellwise_acc']:.4f}  "
             f"roundtrip_exact={metrics['roundtrip_exact_match_rate']:.4f}  "
             f"revealed_acc={metrics['revealed_cell_acc']:.4f}  "
-            f"total training grids so far={total_training_data/1000000:.2f}M bits  "
+            f"total training grids so far={total_training_data/8000000:.2f}MB/({total_training_size/8000000:.2f}MB) "
             f"({dt:.1f}s)",
             flush=True,
         )
@@ -493,7 +457,7 @@ if __name__ == "__main__":
 
     print()
 
-    print(f"Training on {training_size} grid pairs across {epochs} epochs (batch size is {batch_size}, {batches_per_epoch} batches per epoch)")
+    print(f"Training on {training_size} grid pairs with width {grid_size} ({grid_size * grid_size * training_size/8000000:.2f}MB) across {epochs} epochs (batch size is {batch_size}, {batches_per_epoch} batches per epoch)")
     train(
         epochs=epochs,
         batch_size=batch_size,
