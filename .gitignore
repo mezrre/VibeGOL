@@ -221,3 +221,7 @@ __marimo__/
 # Large models
 models/*
 !models/.gitkeep
+
+# dont push config
+config/training_config.json
+config/vibe_gol_config.json
