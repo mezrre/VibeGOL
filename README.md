@@ -61,7 +61,7 @@ VibeGOL/
 ├── config/
 │   └── vibe_gol_config.json
 ├── models/
-│   └── gol_reverse_model_new.pt
+│   └── your_model.pt
 ├── train_model.py
 ├── vibe_core.py
 ├── vibe_gol.py
@@ -112,11 +112,11 @@ The current configuration is:
 ```json
 {
   "grid_size": "24",
-  "model_path": "models/gol_reverse_model_new.pt"
+  "model_path": "models/your_model.pt"
 }
 ```
 
-The inference application therefore expects the trained checkpoint at `models/gol_reverse_model_new.pt` unless this configuration is changed.
+The inference application therefore expects the trained checkpoint at `models/your_model.pt` unless this configuration is changed.
 
 ## Installation
 
