@@ -163,9 +163,9 @@ python vibe_gol.py
 
 The application opens a Pygame window containing three views of the grid:
 
-* The input Game of Life state.
-* The model's predicted predecessor.
-* The resulting Game of Life round trip / probability visualization.
+* The input Game of Life state. (Left, this is the one you edit)
+* The model's predicted predecessor. (Middle)
+* The resulting Game of Life round trip / probability visualization. (Right)
 
 The model is loaded from the path specified by `config/vibe_gol_config.json`.
 
@@ -181,7 +181,7 @@ The model is loaded from the path specified by `config/vibe_gol_config.json`.
 | **U**                   | Advance the input grid by one Game of Life generation |
 | **E**                   | Replace the input with the current prediction         |
 | **C**                   | Clear the input grid                                  |
-| **S**                   | Save the current grid as `saved.rle`                  |
+| **S**                   | Save the current grid as `saved.rle` (can be imported to Golly)                 |
 | **Esc**                 | Quit                                                  |
 
 These controls are implemented directly in the Pygame event loop.
@@ -190,12 +190,12 @@ These controls are implemented directly in the Pygame event loop.
 
 VibeGOL uses the standard **B3/S23** Conway's Game of Life rules:
 
-* A dead cell becomes alive with exactly 3 neighbors.
-* A living cell survives with 2 or 3 neighbors.
-* All other cells die or remain dead.
+* Cells with 3 neighbors are set alive (1)
+* Cells with 2 neighbors keep their last state
+* All other cells are set dead (0)
 
 The implementation uses **circular/wrap-around boundaries**, meaning the top edge connects to the bottom edge and the left edge connects to the right edge. This applies to both the NumPy and PyTorch implementations.
-
+It is not necessary to use the same grid size the model was trained on during inference, though performance may vary between vastly different sized training and inference grid sizes.
 ## Training
 
 The model can be trained using:
@@ -212,21 +212,21 @@ A typical training example is constructed as follows:
 Random predecessor
        │
        ▼
-Game of Life
+Game of Life (5-20 steps)
        │
        ▼
 Next state
        │
-       ├───────────────► model input
+       ├───────────────► model input (NxN channel 0)
        │
 Predecessor
        │
        ▼
 Randomly mask cells
        │
-       ├───────────────► masked predecessor
+       ├───────────────► masked predecessor (NxN channel 1)
        │
-       └───────────────► predecessor mask
+       └───────────────► predecessor mask (NxN channel 2)
 ```
 
 The three resulting input channels are concatenated and supplied to the network:
@@ -270,13 +270,13 @@ predict_incremental(model, input_grid, max_steps=1000, prob_threshold=0.98, devi
 At each iteration it:
 
 1. Predicts the predecessor.
-2. Applies the real Game of Life rules to that prediction.
+2. Applies the forward step standard Game of Life rules to that prediction.
 3. Compares the resulting state with the requested input.
-4. Stops if the round trip matches exactly.
+4. Stops if the round trip matches exactly (meaning what it has IS the solution).
 5. Otherwise selects an uncertain cell and modifies the candidate.
 6. Repeats until a solution is found or `max_steps` is reached.
 
-This is important because the neural network itself is not being treated as a guaranteed inverse solver. The actual Game of Life simulation provides the final validity check.
+This is important because the neural network itself is not being treated as a guaranteed inverse solver. The actual Game of Life simulation provides the final validity check. If `max_steps` steps pass and the loop hasn't found a predecessor, it just returns what it has, even though it has mismatch. 
 
 ## RLE Output
 
@@ -300,19 +300,19 @@ This makes saved patterns convenient to use with other Conway's Game of Life too
 
 VibeGOL should be viewed as an experimental learned inverse rather than an exact mathematical solver.
 
-### Non-unique predecessors
+### Non-unique predecessors and Garden of Eden Patterns
 
 A Game of Life state can have multiple valid predecessors. The model therefore learns a distribution over plausible cells rather than having a uniquely determined answer in every case.
 
 The iterative inference algorithm attempts to resolve this ambiguity by progressively modifying uncertain cells and checking the resulting candidate against the actual Game of Life transition function.
 
-### No guaranteed solution
+This also necessarily means that some patterns have NO predecessor, called Garden of Eden patterns. This is because the set of all input and set of all outputs have the same size, and there is only 1 successor to each input, meaning some inputs may not have a predecessor. The model does not have any functionality to detect them, as all of the training examples are generated from GOL runs, and are thus not Garden of Eden patterns. It will try to predict a close previous state, but it can't find the true predecessor when it doesn't exist.
 
-If the incremental search reaches its maximum number of iterations without finding a matching predecessor, it returns its current candidate and reports that it is not a solution.
+If the incremental search reaches its maximum number of iterations without finding a matching predecessor, it returns its current candidate and reports that it is not a solution. There may still be a solution it hasn't found, or it may be a Garden of Eden patter.
 
 ### CPU inference
 
-The interactive application currently sets its inference device to CPU. Training, on the other hand, is configured around CUDA in `train_model.py`.
+Inference on CPU is possible, but may be slower, as the current search algorithm calls the model many times to find a solution.
 
 ### Model-dependent behavior
 
@@ -393,7 +393,7 @@ The repository is intentionally small and self-contained. The primary files to m
 * **Interactive UI:** `vibe_gol.py`
 * **Inference configuration:** `config/vibe_gol_config.json`
 
-When experimenting with the model architecture, make sure the checkpoint's architecture parameters remain compatible with the model loader. The application reads the saved channel count and number of residual blocks from the checkpoint when reconstructing `GoLReverseNet`.
+When experimenting with the model architecture, make sure the checkpoint's architecture parameters remain compatible with the model loader. The application reads the saved channel count and number of residual blocks from the checkpoint when reconstructing `GoLReverseNet`. 
 
 ## License
 
