@@ -43,12 +43,13 @@ The inference process therefore looks approximately like:
                  │                              │
                  ▼                              │
 Input state ──► CNN ──► probability map ──► candidate predecessor
-                 |                         + any additional constraints                           
-                 ▼
-     Run GOL and check if correct 
-                 │
-                 ▼
-           Final Solution
+                                           + any additional constraints
+                                                |                      
+                                                ▼
+                                    Run GOL and check if correct 
+                                                │
+                                                ▼
+                                          Final Solution
 ```
 
 The incremental predictor repeatedly evaluates the candidate, checks its Game of Life round trip, and modifies uncertain cells until it finds a matching predecessor or reaches its iteration limit.
