@@ -54,20 +54,6 @@ Input state ──► CNN ──► probability map ──► candidate predeces
 
 The incremental predictor repeatedly evaluates the candidate, checks its Game of Life round trip, and modifies uncertain cells until it finds a matching predecessor or reaches its iteration limit.
 
-## Features
-
-* Reverse one generation of Conway's Game of Life using a CNN.
-* Iterative predecessor prediction rather than relying on a single network output.
-* Probability and confidence maps for model predictions.
-* Round-trip verification using the actual Game of Life rules.
-* Interactive Pygame grid editor.
-* Random grid generation.
-* Manual cell editing.
-* Save grids as Run Length Encoded (`.rle`) patterns.
-* Train the model entirely from procedurally generated Game of Life states.
-* GPU-accelerated training through PyTorch/CUDA.
-* Configurable inference grid size and model checkpoint.
-
 ## Repository Structure
 
 ```text
