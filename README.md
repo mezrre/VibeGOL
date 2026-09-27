@@ -81,7 +81,7 @@ The model is `GoLReverseNet`, consisting of:
 * A `1×1` convolutional output head.
 * Circular padding throughout the network.
 
-The default architecture is 64 channels with 24 residual blocks, although the checkpoint stores the architecture parameters used when the model was trained.
+The default architecture is 16 channels with 5 residual blocks, although the checkpoint stores the architecture parameters used when the model was trained. The largest model tested was 24 residual blocks with 64 channels.
 
 ### `train_model.py`
 
