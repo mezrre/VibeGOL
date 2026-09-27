@@ -418,12 +418,11 @@ def train(
         )
 
     plt.plot(list(range(0, len(loss_values))), loss_values)
-    plt.plot(list(range(0, len(exact_match_values))), exact_match_values)
     plt.plot(list(range(0, len(roundtrip_acc_values))), roundtrip_acc_values)
 
     plt.xlabel("Batch #")
     plt.ylabel("") 
-    plt.legend(["loss", "exact match rate", "roundtrip match rate"])
+    plt.legend(["loss", "roundtrip match rate"])
     plt.show()
     return model
 

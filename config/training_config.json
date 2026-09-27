@@ -1,10 +1,10 @@
 {
-    "grid_size": "32",
-    "layer_count": "10",
-    "channel_count": "16",
+    "grid_size": "64",
+    "layer_count": "40",
+    "channel_count": "80",
     "num_epochs": "100",
-    "batch_size": "64",
-    "batches_per_epoch": "32",
+    "batch_size": "14",
+    "batches_per_epoch": "128",
     "learning_rate": "1e-3",
     "model_path": "models/gol_reverse_model.pt"
 }
