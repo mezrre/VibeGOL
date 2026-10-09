@@ -17,7 +17,7 @@ The model takes three channels as input:
 
 It outputs a single-channel probability map representing the probability that each cell in the predecessor was alive.
 
-### Why the mask matters
+### Cell masking and constraining
 As stated before, reversing GOL is not necessarily a one-to-one problem. A single state can have multiple valid predecessors and some states may have no predecessors (these are called Garden of Eden states, as they can only occur as the initialized state of a GOL run). Instead of asking the network to produce one deterministic answer with no additional information, VibeGOL can be used with a searching algorithm that progressively reveal parts of a candidate predecessor and feeds that information back into the model, until it finds a valid predecessor state. Finding a solutions can take a lot of compute, but verifying a potential solution can be done very quickly, as it just requires a forward GOL step and comparison. The incremental predictor implemented in vibe_gol.py repeatedly evaluates the candidate, checks its Game of Life round trip, and modifies uncertain cells until it finds a matching predecessor or reaches its iteration limit. This limit is necessary in the case of Garden of Eden states and when a poor model is used that never finds the solution.
 
 ### `vibe_core.py`
