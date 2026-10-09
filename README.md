@@ -8,22 +8,9 @@ The project includes both a PyTorch training pipeline and a small Pygame interfa
 
 ## How It Works
 
-A normal Game of Life simulation maps:
-
-```text
-previous state ──► Game of Life ──► next state
-```
-
-VibeGOL attempts to approximate the inverse:
-
-```text
-next state ──► neural network ──► predicted previous state
-```
-
-The neural network is a residual convolutional network that uses circular padding, matching the repository's implementation of Game of Life with wrap-around/toroidal boundaries.
+Standard Conway's Game of Life (GOL) applies a deterministic rule to a grid of cells, which are alive or dead, giving the single valid next state. This is a computationally inexpensive operation that can be parallelized very easily, as each cells next state is just a direct combinational function for the cells current state and the 8 neighbor cells states. Reversing this algorithm, however, is much harder, as information is lost with each GOL step, meaning multiple states can result in the same result when applying GOL. Each cells previous state ends up depending on much more than the small 3x3 neighborhood and finding a previous grid requires search algorithms that require exponentially more compute for larger pattern sizes. VibeGOL attempts to use machine learning to optimize this search process by prioritizing states that are more likely to be predecessors than standard search algorithms. It uses a large CNN (Convolutional NN) to do this, which takes a result GOL state and map of constrained cells and finds a map of probabilities that each cell in the grid is alive in the previous state based on the input state and known information. 
 
 The model takes three channels as input:
-
 1. **Next state** — the Game of Life grid whose predecessor is being sought.
 2. **Masked predecessor** — cells of a candidate predecessor that have already been revealed.
 3. **Mask** — indicates which predecessor cells are known.
@@ -31,122 +18,68 @@ The model takes three channels as input:
 It outputs a single-channel probability map representing the probability that each cell in the predecessor was alive.
 
 ### Why the mask matters
-
-Reverse Game of Life is not necessarily a one-to-one problem. A single state can have multiple valid predecessors.
-
-Instead of asking the network to produce one deterministic answer with no additional information, VibeGOL can progressively reveal parts of a candidate predecessor and feed that information back into the model.
-
-The inference process therefore looks approximately like:
-
-```text
-                 ┌──────────────────────────────┐
-                 │                              │
-                 ▼                              │
-Input state ──► CNN ──► probability map ──► candidate predecessor
-                                           + any additional constraints
-                                                |                      
-                                                ▼
-                                    Run GOL and check if correct 
-                                                │
-                                                ▼
-                                          Final Solution
-```
-
-The incremental predictor repeatedly evaluates the candidate, checks its Game of Life round trip, and modifies uncertain cells until it finds a matching predecessor or reaches its iteration limit.
-
-## Repository Structure
-
-```text
-VibeGOL/
-├── config/
-│   └── vibe_gol_config.json
-├── models/
-│   └── your_model.pt
-├── train_model.py
-├── vibe_core.py
-├── vibe_gol.py
-├── requirements.txt
-├── saved.rle
-└── LICENCE
-```
+As stated before, reversing GOL is not necessarily a one-to-one problem. A single state can have multiple valid predecessors and some states may have no predecessors (these are called Garden of Eden states, as they can only occur as the initialized state of a GOL run). Instead of asking the network to produce one deterministic answer with no additional information, VibeGOL can be used with a searching algorithm that progressively reveal parts of a candidate predecessor and feeds that information back into the model, until it finds a valid predecessor state. Finding a solutions can take a lot of compute, but verifying a potential solution can be done very quickly, as it just requires a forward GOL step and comparison. The incremental predictor implemented in vibe_gol.py repeatedly evaluates the candidate, checks its Game of Life round trip, and modifies uncertain cells until it finds a matching predecessor or reaches its iteration limit. This limit is necessary in the case of Garden of Eden states and when a poor model is used that never finds the solution.
 
 ### `vibe_core.py`
 
 Contains the neural network architecture.
-
 The model is `GoLReverseNet`, consisting of:
-
 * A convolutional input stem.
 * A configurable number of residual convolution blocks.
-* A `1×1` convolutional output head.
-* Circular padding throughout the network.
+* Circular padding throughout the network with wrap-around (so all input states are assumed to be toriodal).
 
-The default architecture is 16 channels with 5 residual blocks, although the checkpoint stores the architecture parameters used when the model was trained. The largest model tested was 24 residual blocks with 64 channels.
+The default architecture is 16 channels with 5 residual blocks, although the checkpoint stores the architecture parameters used when the model was trained, so it can run any model size without changing any code. The largest model tested was 24 residual blocks with 64 channels, which showed early success.
 
 ### `train_model.py`
-
 Contains the training and evaluation pipeline.
-
-Training data is generated procedurally rather than loaded from a fixed dataset. Random predecessor grids are generated, advanced through multiple Game of Life generations, and then partially masked before being presented to the network.
+Training data is generated procedurally rather than loaded from a fixed dataset. Random predecessor grids are generated, advanced through multiple Game of Life generations, and then partially masked before being presented to the network, which is computationally cheap when parallelized.
 
 The training code evaluates several properties of the model:
-
 * Cell-wise predecessor accuracy.
 * Exact predecessor matches.
 * Round-trip accuracy.
 * Exact round-trip matches.
 * Consistency with known predecessor cells.
+However, training loss is just the error between the particular predecessor state in the data and model prediction.
 
 ### `vibe_gol.py`
-
 Contains the interactive application and inference logic.
-
-It loads the trained checkpoint, creates the Pygame interface, handles user input, performs prediction, and visualizes the model output. The application currently runs inference on the CPU.
+It loads the trained checkpoint, performs predictions, and visualizes the model output. It requires Pygame to work.
 
 ### `config/vibe_gol_config.json`
-
-Controls the inference grid and checkpoint location.
-
 The current configuration is:
-
 ```json
 {
   "grid_size": "24",
   "model_path": "models/your_model.pt"
 }
 ```
-
-The inference application therefore expects the trained checkpoint at `models/your_model.pt` unless this configuration is changed.
+It stores the inference grid size and checkpoint file path. The inference application therefore expects the trained checkpoint at `models/your_model.pt` unless this configuration is changed.
 
 ## Installation
-
-Clone the repository:
-
+### Clone the repository:
 ```bash
 git clone https://github.com/mezrre/VibeGOL.git
 cd VibeGOL
 ```
 
-Create a virtual environment:
-
+### Create a virtual environment:
 ```bash
 python -m venv .venv
 ```
 
-Activate it on Linux/macOS:
-
+### Activate it 
+on Linux/macOS:
 ```bash
 source .venv/bin/activate
 ```
 
-On Windows:
-
+on Windows:
 ```powershell
 .venv\Scripts\activate
 ```
 
-Install the dependencies:
-
+### Install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
@@ -154,15 +87,12 @@ pip install -r requirements.txt
 The repository currently specifies NumPy, Matplotlib, Pygame, PyTorch, and TorchVision. The PyTorch dependencies in `requirements.txt` target a CUDA 13.2 build, so users without a compatible CUDA environment may need to install an appropriate PyTorch build separately.
 
 ## Running VibeGOL
-
 Once the model checkpoint exists at the configured path, launch the interactive application with:
-
 ```bash
 python vibe_gol.py
 ```
 
 The application opens a Pygame window containing three views of the grid:
-
 * The input Game of Life state. (Left, this is the one you edit)
 * The model's predicted predecessor. (Middle)
 * The resulting Game of Life round trip / probability visualization. (Right)
@@ -199,194 +129,38 @@ It is not necessary to use the same grid size the model was trained on during in
 ## Training
 
 The model can be trained using:
-
 ```bash
 python train_model.py
 ```
 
-Training data is generated on the fly.
+### Note: Model grid size is not hardcoded
+The training grid size and inference grid size are separate concepts in the implementation. Training on larger grids can help the model learn relationships over larger spatial distances. The inference application reads its grid size from `config/vibe_gol_config.json`, which is separate from the training configuration.
 
-A typical training example is constructed as follows:
 
-```text
-Random predecessor
-       │
-       ▼
-Game of Life (5-20 steps)
-       │
-       ▼
-Next state
-       │
-       ├───────────────► model input (NxN channel 0)
-       │
-Predecessor
-       │
-       ▼
-Randomly mask cells
-       │
-       ├───────────────► masked predecessor (NxN channel 1)
-       │
-       └───────────────► predecessor mask (NxN channel 2)
-```
-
-The three resulting input channels are concatenated and supplied to the network:
-
-```text
-Channel 0: next state
-Channel 1: masked predecessor
-Channel 2: predecessor mask
-```
-
-The target is the complete predecessor grid.
-
-The training implementation can also generate batches directly on the GPU, allowing the synthetic dataset to be streamed without maintaining a large static dataset on disk.
-
-### Important training detail
-
-The training grid size and inference grid size are separate concepts in the implementation. The training code notes that training on larger grids can help the model learn relationships over larger spatial distances, while the inference application reads its grid size from `config/vibe_gol_config.json`.
-
-## Inference
-
-The lower-level inference function is:
-
-```python
-model_inference(model, input_grid, mask=None, known_values_grid=None, prob_threshold=0.5, device=None)
-```
-
-It returns:
-
-1. A probability matrix.
-2. A binary predecessor prediction.
-3. A confidence matrix.
-
-Confidence is calculated from the distance of each probability from `0.5`; values closer to `0` indicate uncertainty while values closer to `1` indicate stronger confidence.
-
-For the interactive application, `predict_incremental()` provides a higher-level search strategy:
-
-```python
-predict_incremental(model, input_grid, max_steps=1000, prob_threshold=0.98, device=DEVICE)
-```
-
-At each iteration it:
-
-1. Predicts the predecessor.
-2. Applies the forward step standard Game of Life rules to that prediction.
-3. Compares the resulting state with the requested input.
-4. Stops if the round trip matches exactly (meaning what it has IS the solution).
-5. Otherwise selects an uncertain cell and modifies the candidate.
-6. Repeats until a solution is found or `max_steps` is reached.
-
-This is important because the neural network itself is not being treated as a guaranteed inverse solver. The actual Game of Life simulation provides the final validity check. If `max_steps` steps pass and the loop hasn't found a predecessor, it just returns what it has, even though it has mismatch. 
-
-## RLE Output
-
+## RLE Output (vibe_gol.py)
 Pressing **S** writes the current input grid to:
-
 ```text
 saved.rle
 ```
 
-The generated file uses the standard B3/S23 rule declaration and Run Length Encoding to represent the grid.
-
-For example, the output begins with metadata similar to:
-
+The generated file uses the standard B3/S23 rule declaration and Run Length Encoding to represent the grid. For example, the output begins with metadata similar to the following:
 ```text
 x = 24, y = 24, rule = B3/S23
 ```
 
-This makes saved patterns convenient to use with other Conway's Game of Life tooling.
+This makes saved patterns convenient to use with other Conway's Game of Life tooling such as Golly.
 
 ## Limitations
+VibeGOL should be viewed as an experimental learned inverse rather than an exact mathematical solver. It is meant to be used in search algorithms that ensure the solution is correct, as the model can always output incorrect predictions. 
 
-VibeGOL should be viewed as an experimental learned inverse rather than an exact mathematical solver.
+It outputs a probability map of each cell being alive, not a single output predecessor state. This is actually beneficial for some contexts, as you can find multiple predecessors and set constraints.
 
-### Non-unique predecessors and Garden of Eden Patterns
-
-A Game of Life state can have multiple valid predecessors. The model therefore learns a distribution over plausible cells rather than having a uniquely determined answer in every case.
-
-The iterative inference algorithm attempts to resolve this ambiguity by progressively modifying uncertain cells and checking the resulting candidate against the actual Game of Life transition function.
-
-This also necessarily means that some patterns have NO predecessor, called Garden of Eden patterns. This is because the set of all input and set of all outputs have the same size, and there is only 1 successor to each input, meaning some inputs may not have a predecessor. The model does not have any functionality to detect them, as all of the training examples are generated from GOL runs, and are thus not Garden of Eden patterns. It will try to predict a close previous state, but it can't find the true predecessor when it doesn't exist.
-
-If the incremental search reaches its maximum number of iterations without finding a matching predecessor, it returns its current candidate and reports that it is not a solution. There may still be a solution it hasn't found, or it may be a Garden of Eden patter.
-
-### CPU inference
-
-Inference on CPU is possible, but may be slower, as the current search algorithm calls the model many times to find a solution.
-
-### Model-dependent behavior
+If the incremental search reaches its maximum number of iterations without finding a matching predecessor, it returns its current candidate and reports that it is not a solution. There may still be a solution it hasn't found, or it may be a Garden of Eden pattern.
 
 Prediction quality depends on the training configuration, model checkpoint, grid characteristics, and amount of predecessor information available to the network.
 
-## Configuration
-
-The primary inference configuration is:
-
-```text
-config/vibe_gol_config.json
-```
-
-```json
-{
-  "grid_size": "24",
-  "model_path": "models/gol_reverse_model_new.pt"
-}
-```
-
-### `grid_size`
-
-Controls the size of the interactive Game of Life board.
-
-### `model_path`
-
-Specifies the PyTorch checkpoint loaded by `vibe_gol.py`.
-
-If you train a new model and save it under a different filename, update `model_path` accordingly.
-
-## Project Architecture
-
-At a high level, the repository separates the system into three layers:
-
-```text
-┌─────────────────────────────────────────┐
-│             Pygame Interface            │
-│              vibe_gol.py                │
-│                                         │
-│  Grid editing / visualization / input   │
-└────────────────────┬────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────┐
-│             Inference Logic             │
-│              vibe_gol.py                │
-│                                         │
-│  CNN prediction → candidate → roundtrip │
-└────────────────────┬────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────┐
-│              Neural Network             │
-│              vibe_core.py               │
-│                                         │
-│       GoLReverseNet / ConvBlocks        │
-└─────────────────────────────────────────┘
-                     ▲
-                     │
-┌────────────────────┴────────────────────┐
-│             Training Pipeline           │
-│             train_model.py              │
-│                                         │
-│ Synthetic GoL data → masked inputs      │
-│ → training → checkpoint                 │
-└─────────────────────────────────────────┘
-```
-
-This separation makes `vibe_core.py` reusable independently of the interactive application, while `train_model.py` handles model development and `vibe_gol.py` handles the user-facing inference workflow.
-
 ## Development
-
 The repository is intentionally small and self-contained. The primary files to modify are:
-
 * **Model architecture:** `vibe_core.py`
 * **Training/data generation:** `train_model.py`
 * **Inference/search strategy:** `vibe_gol.py`
@@ -396,9 +170,7 @@ The repository is intentionally small and self-contained. The primary files to m
 When experimenting with the model architecture, make sure the checkpoint's architecture parameters remain compatible with the model loader. The application reads the saved channel count and number of residual blocks from the checkpoint when reconstructing `GoLReverseNet`. 
 
 ## License
-
 VibeGOL is distributed under the **GNU General Public License v3.0 (GPL-3.0)**. See [`LICENCE`](./LICENCE) for the complete license text.
 
 ## Repository
-
 [github.com/mezrre/VibeGOL](https://github.com/mezrre/VibeGOL)
